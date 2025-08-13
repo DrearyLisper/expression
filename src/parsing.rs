@@ -1,4 +1,4 @@
-use nom::{IResult, Parser, branch::alt, bytes::tag};
+use nom::{IResult, Parser, branch::alt, bytes::tag, multi::many0};
 
 use crate::types::{Expr, Factor, Term};
 
@@ -6,18 +6,22 @@ pub fn parse(e: &str) -> IResult<&str, Box<Expr>> {
     parse_expr(e)
 }
 
+fn spaces(s: &str) -> IResult<&str, Vec<&str>> {
+    many0(tag(" ")).parse(s)
+}
+
 fn parse_expr(e: &str) -> IResult<&str, Box<Expr>> {
     let (e, l) = parse_term(e)?;
 
-    let add = ((tag("+"), parse_expr)).parse(e);
+    let add = ((spaces, tag("+"), spaces, parse_expr)).parse(e);
     if add.is_ok() {
-        let (e, (_, r)) = add.unwrap();
+        let (e, (_, _, _, r)) = add.unwrap();
         return Ok((e, Box::new(Expr::Add(l, r))));
     }
 
-    let sub = ((tag("-"), parse_expr)).parse(e);
+    let sub = ((spaces, tag("-"), spaces, parse_expr)).parse(e);
     if sub.is_ok() {
-        let (e, (_, r)) = sub.unwrap();
+        let (e, (_, _, _, r)) = sub.unwrap();
         return Ok((e, Box::new(Expr::Sub(l, r))));
     }
 
@@ -27,15 +31,15 @@ fn parse_expr(e: &str) -> IResult<&str, Box<Expr>> {
 fn parse_term(t: &str) -> IResult<&str, Box<Term>> {
     let (t, l) = parse_factor(t)?;
 
-    let mul = ((tag("*"), parse_term)).parse(t);
+    let mul = ((spaces, tag("*"), spaces, parse_term)).parse(t);
     if mul.is_ok() {
-        let (e, (_, r)) = mul.unwrap();
+        let (e, (_, _, _, r)) = mul.unwrap();
         return Ok((e, Box::new(Term::Mul(l, r))));
     }
 
-    let div = ((tag("/"), parse_term)).parse(t);
+    let div = ((spaces, tag("/"), spaces, parse_term)).parse(t);
     if div.is_ok() {
-        let (e, (_, r)) = div.unwrap();
+        let (e, (_, _, _, r)) = div.unwrap();
         return Ok((e, Box::new(Term::Div(l, r))));
     }
 
@@ -51,7 +55,7 @@ fn parse_factor_num(f: &str) -> IResult<&str, Box<Factor>> {
 }
 
 fn parse_factor_expr(f: &str) -> IResult<&str, Box<Factor>> {
-    let (f, (_, expr, _)) = (tag("("), parse_expr, tag(")")).parse(f)?;
+    let (f, (_, _, expr, _, _)) = (tag("("), spaces, parse_expr, spaces, tag(")")).parse(f)?;
 
     Ok((f, Box::new(Factor::Expr(expr))))
 }
